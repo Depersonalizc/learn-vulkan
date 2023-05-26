@@ -1,3 +1,4 @@
 ﻿  main.cpp
-C:\Users\S9052990\Documents\Summer2023\learn-vulkan\learn-vulkan\VulkanTest\main.cpp(50,27): warning C4018: '<': signed/unsigned mismatch
+C:\Users\S9052990\Documents\Summer2023\learn-vulkan\learn-vulkan\VulkanTest\main.cpp(110,1): warning C4267: '=': conversion from 'size_t' to 'uint32_t', possible loss of data
+C:\Users\S9052990\Documents\Summer2023\learn-vulkan\learn-vulkan\VulkanTest\main.cpp(161,27): warning C4018: '<': signed/unsigned mismatch
   learn-vulkan.vcxproj -> C:\Users\S9052990\Documents\Summer2023\learn-vulkan\x64\Debug\learn-vulkan.exe
