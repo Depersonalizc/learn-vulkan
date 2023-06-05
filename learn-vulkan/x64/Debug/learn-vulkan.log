@@ -1,3 +1,0 @@
-﻿  main.cpp
-C:\Users\S9052990\Documents\Summer2023\learn-vulkan\learn-vulkan\VulkanTest\main.cpp(210,9): warning C4002: too many arguments for function-like macro invocation 'assert'
-  learn-vulkan.vcxproj -> C:\Users\S9052990\Documents\Summer2023\learn-vulkan\x64\Debug\learn-vulkan.exe
