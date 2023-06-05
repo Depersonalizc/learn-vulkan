@@ -35,6 +35,10 @@ const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
 };
 
+const std::vector<const char*> deviceExtensions = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
 
 class HelloTriangleApplication {
 public:
@@ -168,10 +172,11 @@ private:
 
     bool isPhysDeviceSuitable(const VkPhysicalDevice physDevice) const {
         QueueFamilyIndices indices = findQueueFamilies(physDevice);
-        return indices.isComplete();
+        
+        return indices.isComplete() && checkPhysDeviceExtensionSupport(physDevice);
     }
 
-    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physDevice) const {
+    QueueFamilyIndices findQueueFamilies(const VkPhysicalDevice physDevice) const {
         // Find all queue families that we need (indices within the supported families of the device)
         QueueFamilyIndices indices;  // init with no value
 
@@ -202,6 +207,29 @@ private:
 
         return indices;
     }
+
+    bool checkPhysDeviceExtensionSupport(const VkPhysicalDevice physDevice) const {
+        using namespace std;
+        uint32_t extensionCount = 0;
+        vkEnumerateDeviceExtensionProperties(physDevice, nullptr, &extensionCount, nullptr);
+
+        std::vector<VkExtensionProperties> supportedExtensions(extensionCount);
+        vkEnumerateDeviceExtensionProperties(physDevice, nullptr, &extensionCount, supportedExtensions.data());
+        
+        for (const auto& deviceExtension : deviceExtensions) {
+            bool extensionFound = false;
+            for (const auto& supportedExtension : supportedExtensions) {
+                if (string(supportedExtension.extensionName) == deviceExtension) {
+                    extensionFound = true;
+                    break;
+                }
+            }
+            if (!extensionFound)
+                return false;
+        }
+        return true;
+    }
+
 
     // Logical device
     void createLogicalDevice() {
@@ -235,7 +263,8 @@ private:
         deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
 
         // Device extensions and validation layers
-        deviceCreateInfo.enabledExtensionCount = 0;  // Leave device extensions empty for now
+        deviceCreateInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+        deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions.data();
         // Device validation layers have been deprecated, but we include for backward compatability
         if (enableValidationLayers) {
             deviceCreateInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
@@ -280,7 +309,7 @@ private:
         for (uint32_t i = 0; i < requiredExtensionCount; i++) {
             bool found = false;
             for (const auto& ext : extensions) {
-                if (std::string(requiredExtensions[i]) == std::string(ext.extensionName))
+                if (std::string(requiredExtensions[i]) == ext.extensionName)
                     found = true;
             }
             if (!found)
