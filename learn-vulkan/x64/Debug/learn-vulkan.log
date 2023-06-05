@@ -1,4 +1,3 @@
 ﻿  main.cpp
-C:\Users\S9052990\Documents\Summer2023\learn-vulkan\learn-vulkan\VulkanTest\main.cpp(110,1): warning C4267: '=': conversion from 'size_t' to 'uint32_t', possible loss of data
-C:\Users\S9052990\Documents\Summer2023\learn-vulkan\learn-vulkan\VulkanTest\main.cpp(161,27): warning C4018: '<': signed/unsigned mismatch
+C:\Users\S9052990\Documents\Summer2023\learn-vulkan\learn-vulkan\VulkanTest\main.cpp(210,9): warning C4002: too many arguments for function-like macro invocation 'assert'
   learn-vulkan.vcxproj -> C:\Users\S9052990\Documents\Summer2023\learn-vulkan\x64\Debug\learn-vulkan.exe

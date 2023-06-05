@@ -9,6 +9,9 @@
 #include <stdexcept>
 #include <cstdlib>
 #include <string>
+#include <cassert>
+#include <optional>
+#include <set>
 
 
 #ifdef NDEBUG
@@ -17,6 +20,13 @@
     const bool enableValidationLayers = true;
 #endif
 
+
+struct QueueFamilyIndices {
+    std::optional<uint32_t> presentFamily;
+    std::optional<uint32_t> graphicsFamily;
+
+    inline bool isComplete() const { return graphicsFamily.has_value() && presentFamily.has_value(); }
+};
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -37,7 +47,11 @@ public:
 
 private:
     GLFWwindow* window;
+    VkSurfaceKHR surface;
     VkInstance instance;
+
+    VkDevice device;
+    VkQueue graphicsQueue, presentQueue;
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
     /* Main Routines */
@@ -55,7 +69,10 @@ private:
     void initVulkan() {
         createInstance();
 
+        createSurface();  // Create surface right after instance creation, 
+                          // since it could affect physical device selection
         pickPhysicalDevice();
+        createLogicalDevice();
     }
 
     void mainLoop() {
@@ -69,6 +86,8 @@ private:
     void cleanup() {
         std::cout << "Performing cleanup...\n";
 
+        vkDestroyDevice(device, nullptr);
+        vkDestroySurfaceKHR(instance, surface, nullptr);
         // NOTE: All objects created by the instance must be destroyed before this line
         vkDestroyInstance(instance, nullptr);
         glfwDestroyWindow(window);
@@ -79,6 +98,7 @@ private:
 
     /* Helpers for initVulkan */
 
+    // Instance creation - specify extensions, validation layers, etc.
     void createInstance() {
         // Check validation layers support
         if (enableValidationLayers && !checkValidationLayerSupport())
@@ -100,14 +120,14 @@ private:
         createInfo.pApplicationInfo = &appInfo;
 
         uint32_t glfwExtensionCount = 0;
-        const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);  // required extensions
-        validateRequiredExtensions(glfwExtensions, glfwExtensionCount);
+        const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);  // extensions required by glfw
+        validateRequiredExtensions(glfwExtensions, glfwExtensionCount); // make sure all extensions requried are supported by Vulkan
 
         createInfo.enabledExtensionCount = glfwExtensionCount;
         createInfo.ppEnabledExtensionNames = glfwExtensions;
 
         if (enableValidationLayers) {
-            createInfo.enabledLayerCount = validationLayers.size();
+            createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
             createInfo.ppEnabledLayerNames = validationLayers.data();
         }
         else {
@@ -124,6 +144,7 @@ private:
         }
     }
 
+    // Pick the physical device with the supports we need
     void pickPhysicalDevice() {
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -134,9 +155,10 @@ private:
         std::vector<VkPhysicalDevice> physDevs(deviceCount);
         vkEnumeratePhysicalDevices(instance, &deviceCount, physDevs.data());
 
-        for (const auto& dev : physDevs) {
-            if (isDeviceSuitable(dev)) {
-                physicalDevice = dev;
+        // Simply pick the first suitable device
+        for (const auto& physDev : physDevs) {
+            if (isPhysDeviceSuitable(physDev)) {
+                physicalDevice = physDev;
                 return;
             }
         }
@@ -144,8 +166,106 @@ private:
         throw std::runtime_error("Failed to find a suitable GPU");
     }
 
-    bool isDeviceSuitable(const VkPhysicalDevice physDevice) const {
-        return true;
+    bool isPhysDeviceSuitable(const VkPhysicalDevice physDevice) const {
+        QueueFamilyIndices indices = findQueueFamilies(physDevice);
+        return indices.isComplete();
+    }
+
+    QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physDevice) const {
+        // Find all queue families that we need (indices within the supported families of the device)
+        QueueFamilyIndices indices;  // init with no value
+
+        uint32_t queueFamilyCount = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(physDevice, &queueFamilyCount, nullptr);
+
+        std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(physDevice, &queueFamilyCount, queueFamilies.data());
+
+        // Find the supporting queue family indices
+        int i = 0;
+        for (const auto& queueFamily : queueFamilies) {
+            if (indices.isComplete())
+                break;
+
+            // Check graphics support
+            if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+                indices.graphicsFamily = i;
+
+            // Check present (KHR surface) support
+            VkBool32 supportKHRSurface = false;
+            vkGetPhysicalDeviceSurfaceSupportKHR(physDevice, i, surface, &supportKHRSurface);
+            if (supportKHRSurface)
+                indices.presentFamily = i;
+
+            i++;
+        }
+
+        return indices;
+    }
+
+    // Logical device
+    void createLogicalDevice() {
+        // Specify the queues to be created for the device
+        QueueFamilyIndices indices = findQueueFamilies(physicalDevice);  // find queue family index (among those supported by the physical device)
+        assert(indices.isComplete(), "Physical device should have supporting queue families");
+
+        std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+        std::set<uint32_t> queueFamilyIndices = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+
+        float queuePrio = 1.0f;
+        for (auto queueFamilyIndex : queueFamilyIndices) {
+            VkDeviceQueueCreateInfo queueCreateInfo{};
+            queueCreateInfo.pQueuePriorities = &queuePrio;
+            queueCreateInfo.queueCount = 1;  // queues to be created in the queue family (spcified by `indices`)
+            queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
+            queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+            queueCreateInfos.push_back(queueCreateInfo);
+        }
+        
+        // Speicify device features, left empty for now
+        VkPhysicalDeviceFeatures deviceFeatures{};
+        
+        // Create the logical device with vkCreateDevice; Need to specify extensions, validation layers 
+        // just as in vkCreateInstance, but the infos are now device-specific
+        VkDeviceCreateInfo deviceCreateInfo{};
+        deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        // Pointers to the queue createInfos and device features
+        deviceCreateInfo.pQueueCreateInfos = queueCreateInfos.data();
+        deviceCreateInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+        deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
+
+        // Device extensions and validation layers
+        deviceCreateInfo.enabledExtensionCount = 0;  // Leave device extensions empty for now
+        // Device validation layers have been deprecated, but we include for backward compatability
+        if (enableValidationLayers) {
+            deviceCreateInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+            deviceCreateInfo.ppEnabledLayerNames = validationLayers.data();
+        }
+        else {
+            deviceCreateInfo.enabledLayerCount = 0;
+        }
+
+        VkResult res = vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device);
+        if (res != VK_SUCCESS) {
+            throw std::runtime_error(
+                std::string("failed to create device, error ") + string_VkResult(res)
+            );
+        }
+
+        // Get the handles for the device queues
+        vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
+        vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
+    }
+
+    void createSurface() {
+        // Platform-specific surface creation, conveniently handled by GLFW
+        // Ex. vkCreateWin32SurfaceKHR on Windows, and vkCreateXcbSurfaceKHR on Linux
+        VkResult res = glfwCreateWindowSurface(instance, window, nullptr, &surface);
+        if (res != VK_SUCCESS) {
+            throw std::runtime_error(
+                std::string("failed to create window surface, error ") + string_VkResult(res)
+            );
+        }
     }
 
     /* Error Checking */
@@ -157,7 +277,7 @@ private:
         std::vector<VkExtensionProperties> extensions(extensionCount);
         vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());  // Get info about extensions
 
-        for (int i = 0; i < requiredExtensionCount; i++) {
+        for (uint32_t i = 0; i < requiredExtensionCount; i++) {
             bool found = false;
             for (const auto& ext : extensions) {
                 if (std::string(requiredExtensions[i]) == std::string(ext.extensionName))
