@@ -19,4 +19,18 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="VulkanTest\shaders\src\triangle.vert">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="VulkanTest\shaders\src\triangle.frag">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="VulkanTest\shaders\spv\triangle_frag.spv">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="VulkanTest\shaders\spv\triangle_vert.spv">
+      <Filter>Resource Files</Filter>
+    </None>
+  </ItemGroup>
 </Project>

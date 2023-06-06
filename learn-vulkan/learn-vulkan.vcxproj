@@ -21,6 +21,12 @@
   <ItemGroup>
     <ClCompile Include="VulkanTest\main.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="VulkanTest\shaders\spv\triangle_frag.spv" />
+    <None Include="VulkanTest\shaders\spv\triangle_vert.spv" />
+    <None Include="VulkanTest\shaders\src\triangle.frag" />
+    <None Include="VulkanTest\shaders\src\triangle.vert" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>

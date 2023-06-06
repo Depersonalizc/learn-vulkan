@@ -16,6 +16,7 @@
 //#include <cstdint>  // uint32_t
 #include <limits>     // std::numeric_limits
 #include <algorithm>  // std::clamp
+#include <fstream>
 
 
 #ifdef NDEBUG
@@ -528,8 +529,72 @@ private:
 
     /* Graphics Pipeline */
     void createGraphicsPipeline() {
-        
+        auto vertShaderSpv = readFile("VulkanTest/shaders/spv/triangle_vert.spv");
+        auto fragShaderSpv = readFile("VulkanTest/shaders/spv/triangle_frag.spv");
+
+        VkShaderModule vertShaderModule = createShaderModule(vertShaderSpv);
+        VkShaderModule fragShaderModule = createShaderModule(fragShaderSpv);
+
+        VkPipelineShaderStageCreateInfo shaderStageCreateInfos[] = {
+            // Vertex shader stage
+            {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                .stage = VK_SHADER_STAGE_VERTEX_BIT,
+                .module = vertShaderModule,
+                .pName = "main",
+            },
+            // Fragment shader stage
+            {
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+                .module = fragShaderModule,
+                .pName = "main",
+            },
+        };
+
+        // TODO: fixed-function stages
+
+        vkDestroyShaderModule(device, vertShaderModule, nullptr);
+        vkDestroyShaderModule(device, fragShaderModule, nullptr);
     }
+
+    // shader helpers
+    VkShaderModule createShaderModule(const std::vector<char>& shaderSpv) {
+        VkShaderModuleCreateInfo shaderModuleCreateInfo {
+            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            .codeSize = shaderSpv.size(),
+            .pCode = reinterpret_cast<const uint32_t*>(shaderSpv.data())
+        };
+
+        VkShaderModule shaderModule;
+        VkResult res = vkCreateShaderModule(device, &shaderModuleCreateInfo, nullptr, &shaderModule);  // thin wrapper around the byte code
+        if (res != VK_SUCCESS) {
+            throw std::runtime_error(
+                std::string("failed to create shader module, error ") + string_VkResult(res)
+            );
+        }
+
+        return shaderModule;
+    }
+
+    static std::vector<char> readFile(const std::string& filename) {
+        std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+        if (!file.is_open()) {
+            throw std::runtime_error("failed to open file");
+        }
+
+        size_t fileSize = (size_t)file.tellg();
+        std::vector<char> buffer(fileSize);
+        
+        file.seekg(0);
+        file.read(buffer.data(), fileSize);
+
+        file.close();
+
+        return buffer;
+    }
+
 
     /* Error Checking */
     void validateRequiredExtensions(const char **requiredExtensions, uint32_t requiredExtensionCount) {
