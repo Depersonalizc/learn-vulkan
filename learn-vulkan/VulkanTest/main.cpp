@@ -211,7 +211,7 @@ private:
     // Find a suitable physical device that supports
     //  - Graphics and Present queue families
     //  - All of `deviceExtensions`
-    //  - Adequate swap chain support 
+    //  - desired swap chain functionalities 
     bool isPhysDeviceSuitable(const VkPhysicalDevice physDevice) const {
         QueueFamilyIndices indices = findQueueFamilies(physDevice);
         return indices.isComplete()
